@@ -1,8 +1,7 @@
 // src/components/MatchResultModal.tsx
 'use client';
 
-// 1. Import 'useActionState' from 'react'
-import { useState, useActionState } from 'react';
+import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Match, Participant } from '@prisma/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -36,15 +35,22 @@ function SubmitButton() {
 
 export function MatchResultModal({ match, leagueId }: MatchResultModalProps) {
   const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState('');
   
-  // 2. Rename the hook to useActionState
-  const [state, formAction] = useActionState(updateMatchResult, initialState);
-
-  // A more reliable way to close the dialog
-  if (state.message === 'Match updated successfully!' && open) {
-    setOpen(false);
-    state.message = ''; // Reset message to prevent re-triggering
-  }
+  const handleSubmit = async (formData: FormData) => {
+    try {
+      // Pass an empty state object as the first argument
+      const result = await updateMatchResult({ message: '' }, formData);
+      if (result.message === 'Match updated successfully!') {
+        setOpen(false);
+        setMessage('');
+      } else {
+        setMessage(result.message || 'Error updating match');
+      }
+    } catch (error) {
+      setMessage('Failed to update match');
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -53,11 +59,11 @@ export function MatchResultModal({ match, leagueId }: MatchResultModalProps) {
           <FaEdit className="mr-2 h-4 w-4" /> Record Result
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Record Match Result</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="space-y-4 pt-4">
+        <form action={handleSubmit} className="space-y-4 pt-4">
           <input type="hidden" name="matchId" value={match.id} />
           <input type="hidden" name="player1Id" value={match.player1Id} />
           <input type="hidden" name="player2Id" value={match.player2Id} />
@@ -79,8 +85,8 @@ export function MatchResultModal({ match, leagueId }: MatchResultModalProps) {
           <div className="flex justify-end">
             <SubmitButton />
           </div>
-          {state?.message && state.message !== 'Match updated successfully!' && (
-             <p aria-live="polite" className="text-sm text-red-500 mt-2">{state.message}</p>
+          {message && (
+             <p aria-live="polite" className="text-sm text-red-500 mt-2">{message}</p>
           )}
         </form>
       </DialogContent>
