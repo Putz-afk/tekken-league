@@ -1,0 +1,51 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL") // Required for some environments like Vercel
+}
+
+model League {
+  id           String        @id @default(cuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  participants Participant[]
+  matches      Match[]
+}
+
+model Participant {
+  id           String   @id @default(cuid())
+  name         String
+  matchesPlayed Int      @default(0)
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+  gamesWon     Int      @default(0)
+  gamesLost    Int      @default(0)
+  points       Int      @default(0)
+  leagueId     String
+  league       League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  matchesAsP1  Match[]  @relation("Player1")
+  matchesAsP2  Match[]  @relation("Player2")
+
+  @@unique([leagueId, name])
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  day          Int
+  isCompleted  Boolean     @default(false)
+  player1Score Int?
+  player2Score Int?
+  leagueId     String
+  league       League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  player1Id    String
+  player1      Participant @relation("Player1", fields: [player1Id], references: [id], onDelete: Cascade)
+  player2Id    String
+  player2      Participant @relation("Player2", fields: [player2Id], references: [id], onDelete: Cascade)
+
+  @@index([leagueId])
+}
