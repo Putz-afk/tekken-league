@@ -4,6 +4,12 @@ import CreateLeagueForm from '@/components/CreateLeagueForm';
 import prisma from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+type League = {
+  id: string;
+  name: string;
+  // add other properties as needed
+};
+
 export default async function HomePage() {
   const leagues = await prisma.league.findMany({
     orderBy: { createdAt: 'desc' },
@@ -37,7 +43,7 @@ export default async function HomePage() {
                 <p className="text-slate-400">No leagues found. Create one to get started!</p>
               ) : (
                 <ul className="space-y-2">
-                  {leagues.map((league) => (
+                  {leagues.map((league: League) => (
                     <li key={league.id}>
                       <Link href={`/league/${league.id}`} className="block p-3 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors">
                         {league.name}

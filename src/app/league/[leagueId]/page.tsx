@@ -1,4 +1,5 @@
 // src/app/league/[leagueId]/page.tsx
+
 import StandingsTable from "@/components/StandingsTable";
 import MatchList from "@/components/MatchList";
 import prisma from "@/lib/db";
@@ -6,11 +7,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa";
 
-export default async function LeaguePage({ params }: { params: { leagueId: string } }) {
-  const leagueId = params.leagueId;
+
+export default async function LeaguePage({ params }: { params: Promise<{ leagueId: string }> }) {
+  const { leagueId } = await params;
 
   const league = await prisma.league.findUnique({
-    where: { id: leagueId },
+    where: { id: leagueId }, // Using the destructured leagueId
     include: {
       participants: {
         orderBy: [
