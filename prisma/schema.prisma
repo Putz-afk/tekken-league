@@ -14,6 +14,7 @@ datasource db {
 model League {
   id           String              @id @default(uuid())
   name         String              @unique
+  slug         String              @unique
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
   participants PlayerLeagueStats[] // Relation to the new stats model
@@ -60,12 +61,11 @@ model PlayerLeagueStats {
 }
 
 // --- Match & Game Logic ---
-// These models are required and were likely missing or misplaced.
 
 model Match {
   id        String   @id @default(uuid())
   leagueId  String
-  league    League   @relation("LeagueMatches", fields: [leagueId], references: [id])
+  league    League   @relation("LeagueMatches", fields: [leagueId], references: [id], onDelete: Cascade)
   homePlayerId String
   awayPlayerId String
   homePlayer Player   @relation("HomePlayer", fields: [homePlayerId], references: [id])

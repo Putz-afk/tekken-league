@@ -3,9 +3,8 @@ import Link from 'next/link';
 import CreateLeagueForm from '@/components/CreateLeagueForm';
 import prisma from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { League } from '@prisma/client';
 
-// It's best to import the League type from Prisma's generated client
-import { League } from '@prisma/client'; 
 
 export default async function HomePage() {
   const leagues = await prisma.league.findMany({
@@ -13,12 +12,17 @@ export default async function HomePage() {
   });
 
   return (
-    // Main container padding and overall background should ideally be set in layout.tsx or global styles
-    // Here, we'll focus on the specific elements within this page.
-    <div className="space-y-12 text-slate-100"> {/* Added default text color for consistency */}
-      <section>
-        <h1 className="text-4xl font-bold mb-4 text-yellow-400">Tekken League Tracker</h1>
-        <p className="text-slate-300">Create a new league or view existing ones.</p>
+    <div className="space-y-12 text-slate-100">
+      <section className="flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-bold mb-4 text-yellow-400">Tekken League Tracker</h1>
+          <p className="text-slate-300">Create a new league or view existing ones.</p>
+        </div>
+        {/* === ADD THIS LINK === */}
+        <Link href="/rules" className="text-yellow-400 hover:underline font-semibold border border-yellow-500/50 rounded-md px-4 py-2 hover:bg-yellow-500/10 transition-colors">
+          View League Rules
+        </Link>
+        {/* === END OF ADDED LINK === */}
       </section>
 
       <section className="grid md:grid-cols-2 gap-8">
@@ -45,7 +49,7 @@ export default async function HomePage() {
                   {leagues.map((league: League) => (
                     <li key={league.id}>
                       <Link 
-                        href={`/league/${league.id}`} 
+                        href={`/league/${league.slug}`} 
                         className="block p-4 rounded-md bg-slate-700 hover:bg-slate-600 transition-colors border border-transparent hover:border-yellow-500" // Added border and hover border
                       >
                         <h3 className="font-semibold text-lg text-slate-100">{league.name}</h3> {/* Consistent text color */}

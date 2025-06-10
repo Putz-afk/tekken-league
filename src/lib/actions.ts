@@ -12,9 +12,19 @@ export type FormState = {
   errors?: Record<string, string[] | undefined>;
 };
 
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-')       // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')   // Remove all non-word chars
+    .replace(/\-\-+/g, '-')     // Replace multiple - with single -
+    .replace(/^-+/, '')         // Trim - from start of text
+    .replace(/-+$/, '');        // Trim - from end of text
+}
+
 // --- createLeague Action ---
 export async function createLeague(prevState: FormState, formData: FormData): Promise<FormState> {
-  // --- All your validation and "Bye" player logic is the same ---
   const leagueName = formData.get('leagueName') as string;
   const participantsStr = formData.get('participants') as string;
   if (!leagueName.trim() || !participantsStr.trim()) {
@@ -28,10 +38,11 @@ export async function createLeague(prevState: FormState, formData: FormData): Pr
     participantNames.push('Bye');
   }
 
+  const slug = slugify(leagueName);
+
   let newLeague;
   try {
     newLeague = await prisma.$transaction(async (tx) => {
-      // Step 1: Find or create all the necessary players. This is still correct.
       const playerUpserts = participantNames.map((name) =>
         tx.player.upsert({
           where: { name: name },
@@ -41,15 +52,11 @@ export async function createLeague(prevState: FormState, formData: FormData): Pr
       );
       const players = await Promise.all(playerUpserts);
 
-      // Step 2: Create the league and its associated PlayerLeagueStats records
       const league = await tx.league.create({
         data: {
           name: leagueName,
+          slug: slug,
           participants: {
-            // =====================================================================
-            // THE FIX IS HERE:
-            // Instead of a nested connect, we directly provide the playerId.
-            // =====================================================================
             create: players.map(player => ({
               playerId: player.id
             }))
@@ -57,7 +64,6 @@ export async function createLeague(prevState: FormState, formData: FormData): Pr
         }
       });
 
-      // Step 3: Round-Robin Scheduling (works with NO CHANGES)
       const numPlayers = players.length;
       const rounds = numPlayers - 1;
       const matchesToCreate = [];
@@ -88,21 +94,18 @@ export async function createLeague(prevState: FormState, formData: FormData): Pr
     });
   } catch (error) {
     console.error('Failed to create league:', error);
-    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
+    if (error instanceof Error && 'code' in error && (error.code === 'P2002' || (error.meta?.target as string[])?.includes('name'))) {
       return { success: false, message: 'Error: A league with this name already exists.' };
     }
     return { success: false, message: 'Database Error: Failed to create league.' };
   }
 
-  // Revalidation and Redirect
   revalidatePath('/');
-  redirect(`/league/${newLeague.id}`);
+  redirect(`/league/${newLeague.slug}`);
 }
 
 
 // --- updateMatchResult Action ---
-// This function does not need changes, but the API route it calls WILL need changes
-// to update the new PlayerLeagueStats model instead of the Player model.
 export async function updateMatchResult(
   data: {
     matchId: string;
@@ -121,19 +124,29 @@ export async function updateMatchResult(
           isNaN(data.game2WinnerRounds) || isNaN(data.game2LoserRounds)) {
           return { success: false, message: 'Invalid or missing data for match result.' };
       }
-      const apiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/matches`;
+      
+      // =====================================================================
+      // THE FIX IS HERE:
+      // Construct the full, absolute URL for the fetch call.
+      // =====================================================================
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const apiUrl = `${baseUrl}/api/matches`;
+
       const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
       });
+
       const result = await response.json();
       if (!response.ok) {
           console.error('API Error Response:', result);
           return { success: false, message: result.message || 'Failed to record match result.' };
       }
+      
       revalidatePath(`/league/${data.leagueId}`);
-      revalidatePath('/api/standings');
+      // The standings API route no longer exists, so we remove its revalidation
+      // revalidatePath('/api/standings');
       return { success: true, message: 'Match result recorded successfully!' };
   } catch (error) {
       console.error('Error in updateMatchResult action:', error);
