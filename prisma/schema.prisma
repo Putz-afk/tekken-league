@@ -1,51 +1,99 @@
 // prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL") // Required for some environments like Vercel
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
+// --- Core Models ---
 
 model League {
-  id           String        @id @default(cuid())
-  name         String
-  createdAt    DateTime      @default(now())
-  participants Participant[]
-  matches      Match[]
+  id           String              @id @default(uuid())
+  name         String              @unique
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  participants PlayerLeagueStats[] // Relation to the new stats model
+  matches      Match[]             @relation("LeagueMatches")
+
+  @@map("leagues")
 }
 
-model Participant {
-  id           String   @id @default(cuid())
-  name         String
-  matchesPlayed Int      @default(0)
-  wins         Int      @default(0)
-  losses       Int      @default(0)
-  gamesWon     Int      @default(0)
-  gamesLost    Int      @default(0)
-  points       Int      @default(0)
-  leagueId     String
-  league       League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  matchesAsP1  Match[]  @relation("Player1")
-  matchesAsP2  Match[]  @relation("Player2")
+model Player {
+  id          String              @id @default(uuid())
+  name        String              @unique
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  leagueStats PlayerLeagueStats[] // Relation to the new stats model
+  homeMatches Match[]             @relation("HomePlayer")
+  awayMatches Match[]             @relation("AwayPlayer")
+  wonGames    Game[]              @relation("GameWinner")
+  lostGames   Game[]              @relation("GameLoser")
 
-  @@unique([leagueId, name])
+  @@map("players")
 }
+
+// --- Join/Stats Model ---
+
+model PlayerLeagueStats {
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  leagueId String
+  league   League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  // All player stats are now stored here, per league
+  points            Int @default(0)
+  matchWins         Int @default(0)
+  matchLosses       Int @default(0)
+  matchDraws        Int @default(0)
+  gamesWon          Int @default(0)
+  gamesLost         Int @default(0)
+  totalRoundsWon    Int @default(0)
+  totalRoundsLost   Int @default(0)
+  roundDifferential Int @default(0)
+
+  @@id([playerId, leagueId])
+  @@map("player_league_stats")
+}
+
+// --- Match & Game Logic ---
+// These models are required and were likely missing or misplaced.
 
 model Match {
-  id           String      @id @default(cuid())
-  day          Int
-  isCompleted  Boolean     @default(false)
-  player1Score Int?
-  player2Score Int?
-  leagueId     String
-  league       League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  player1Id    String
-  player1      Participant @relation("Player1", fields: [player1Id], references: [id], onDelete: Cascade)
-  player2Id    String
-  player2      Participant @relation("Player2", fields: [player2Id], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  leagueId  String
+  league    League   @relation("LeagueMatches", fields: [leagueId], references: [id])
+  homePlayerId String
+  awayPlayerId String
+  homePlayer Player   @relation("HomePlayer", fields: [homePlayerId], references: [id])
+  awayPlayer Player   @relation("AwayPlayer", fields: [awayPlayerId], references: [id])
+  games     Game[]
+  matchDate DateTime @default(now())
+  homePlayerMatchPoints Int @default(0)
+  awayPlayerMatchPoints Int @default(0)
+  isCompleted Boolean  @default(false)
+  day       Int?
 
-  @@index([leagueId])
+  @@unique([leagueId, homePlayerId, awayPlayerId])
+  @@map("matches")
+}
+
+model Game {
+  id           String   @id @default(uuid())
+  matchId      String
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  gameNumber   Int
+  winnerId     String?
+  winner       Player?  @relation("GameWinner", fields: [winnerId], references: [id])
+  loserId      String?
+  loser        Player?  @relation("GameLoser", fields: [loserId], references: [id])
+  winnerRounds Int
+  loserRounds  Int
+  createdAt    DateTime @default(now())
+
+  @@unique([matchId, gameNumber])
+  @@map("games")
 }

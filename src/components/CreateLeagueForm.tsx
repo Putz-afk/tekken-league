@@ -1,8 +1,7 @@
 // src/components/CreateLeagueForm.tsx
 'use client';
 
-// 1. Import 'useActionState' from 'react' instead of 'useFormState' from 'react-dom'
-import { useActionState } from 'react'; 
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createLeague } from '@/lib/actions';
 import { Label } from './ui/label';
@@ -10,7 +9,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 
-const initialState = { message: '' };
+const initialState = { success: false, message: '' }; // Match the FormState type
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,7 +21,7 @@ function SubmitButton() {
 }
 
 export default function CreateLeagueForm() {
-  // 2. Rename the hook to useActionState
+  // Use useFormState instead of useActionState
   const [state, formAction] = useActionState(createLeague, initialState);
 
   return (
@@ -42,7 +41,11 @@ export default function CreateLeagueForm() {
         />
       </div>
       <SubmitButton />
-      {state.message && <p aria-live="polite" className="text-sm text-red-500 mt-2">{state.message}</p>}
+      {state.message && (
+        <p aria-live="polite" className={`text-sm mt-2 ${state.success ? 'text-green-500' : 'text-red-500'}`}>
+          {state.message}
+        </p>
+      )}
     </form>
   );
 }
